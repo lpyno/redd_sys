@@ -17,14 +17,20 @@ import javax.json.JsonReader;
 
 public class Buscador {
 	
+	final static int MIN_RESULTADOS = 1;
+	final static int MAX_RESULTADOS = 50;		// untested
+	
 	private static String token = null;			// articulo a buscar
-	private String dataSource = null;			// donde buscar
-	private String pattern = null;
+	private static String dataSource = null;	// donde buscar
+	private static String pattern = null;
 	private static Buscador buscador = null;
 	private static Pattern p = null;
 	private static FileReader fileReader = null;
-	private static List<Object> rv= null;
+	private static List<String> resultList= null;
+	private static List<Integer> topMatchesCount = null;
+	
 	JsonObject jsonObject = null;
+	private static int numeroResultados = MIN_RESULTADOS;
 	
 	public static String getToken() {
 		return token;
@@ -38,12 +44,12 @@ public class Buscador {
 		return pattern;
 	}
 
-	private Buscador( String pattern, String dataSource ){
+	private Buscador( String pattern, String dataSource ) {
 		
 		p = Pattern.compile( pattern );
 
-		this.pattern = pattern;
-		this.dataSource = dataSource; 
+		Buscador.pattern = pattern;
+		Buscador.dataSource = dataSource; 
 		
 		if ( null == ( fileReader = getFileReader( dataSource ) ) ){
 			System.out.println( "Cerrando." );
@@ -62,27 +68,42 @@ public class Buscador {
 			System.exit( -3 );
 		}
 
-		rv = new ArrayList<>();
 	}
 	
-	public static Buscador getInstance( String pattern, String dataSource ){
+	public static Buscador getInstance( String pattern, String dataSource ) {
 		
 		if ( buscador == null ){
 			buscador = new Buscador( pattern , dataSource );	
 		}
 		return buscador;
 	}
-
-	public static Buscador getInstance(){
+ 
+	public static Buscador getInstance() {
 		
 		return buscador;
 
 	}
 	
-	public List<Object> buscarSemejantes( ) {
+	public void buscarSemejantes( int numeroResultadosRequerido ) {
+
+		if ( numeroResultadosRequerido > MIN_RESULTADOS && numeroResultadosRequerido < MAX_RESULTADOS ) {
+			numeroResultados = numeroResultadosRequerido;
+		} else {
+			System.out.println( "El numero de resultados solicitado es invalido." );
+			System.out.println( "Se retornara el numero de resultados por defecto" );
+		}
 		
 		solicitaTokenEntrada();
 		
+		// inicializa listas de numero de coincidencias y tokens
+		topMatchesCount = new ArrayList<>();
+		resultList = new ArrayList<>();
+		for ( int i = 0 ; i < numeroResultados ; i++ ) {
+			topMatchesCount.add( 0 );
+			resultList.add( "empty" );
+		}
+		
+
 		JsonObject atributosToken = jsonObject.getJsonObject( token );
 		
 		if ( atributosToken == null ) {
@@ -90,17 +111,27 @@ public class Buscador {
 			System.out.println( "Cerrando." );
 			System.exit( -4 );
 		}
-	
 		//System.out.println( atributosToken.toString() );
-		
-		return buscaAtributos( jsonObject , atributosToken );
-
+		buscaAtributos( jsonObject , atributosToken );
+	
+		mostrarResultados();
 		
 	}
 	
-	private static List<Object> buscaAtributos(JsonObject universoBusqueda , JsonObject atributosEntrada ) {
+	private void mostrarResultados() {
+		
+		for( int i = 0 ; i < numeroResultados ; i++ ){
+			System.out.println( ( i + 1 ) + ".- Coincidencias en atributos: " + topMatchesCount.get( i ) );
+			String token = resultList.get( i );
+			System.out.println( token + " " + jsonObject.get( token ).toString() );
+		}
+		return;
+	}
+
+	private static void buscaAtributos(JsonObject universoBusqueda , JsonObject atributosEntrada ) {
 		
 		String tokenBase = "sku-"; // ?
+		String tokenToSearch = null ; // ?
 		JsonObject atributosTemp = null;
 		List<String> entrada = new ArrayList<>();
 		List<String> aux = new ArrayList<>();
@@ -109,25 +140,38 @@ public class Buscador {
 		entrada = atributosComoLista( atributosEntrada );
 		
 		for ( int i = 1 ; ; i++ ){
-			tokenBase += i;
-			if ( null != ( atributosTemp = universoBusqueda.getJsonObject( tokenBase ) ) ){
+			tokenToSearch = tokenBase + i;
+			if ( null != ( atributosTemp = universoBusqueda.getJsonObject( tokenToSearch ) ) ){
 				aux = atributosComoLista( atributosTemp );
 				matches = comparaAtributos( entrada , aux );
-				actualizaResultados( matches, tokenBase );
+				actualizaResultados( matches, tokenToSearch );
 			} else {
-				return rv;
+				return;
 			}
 		}
 		
 	}
 	
-	private static void actualizaResultados(int matches, String tokenBase) {
+	private static void actualizaResultados( int matches , String tokenBase ) {
 	
-		Map<Integer, Integer> topMatchesCount = new HashMap<>();
-		Map<Integer, String> topMatchesKeys = new HashMap<>();
+		for ( int i = 0 ; i < numeroResultados ; i++ ){
+			if ( matches > topMatchesCount.get( i ) ){
+				topMatchesCount.add( i , matches );
+				topMatchesCount.remove( topMatchesCount.size() - 1 );
+				resultList.add( i , tokenBase );
+				resultList.remove( resultList.size() - 1 );
+				break;
+			}
+		}
+		// mantiene el largo de las listas igual al numero de resultados requerido
+/*		if ( topMatchesCount.size() > numeroResultados ){
+			topMatchesCount = topMatchesCount.subList( 0 , numeroResultados );
+		}
 		
-		// asdf
-		
+		if ( resultList.size() > numeroResultados ){
+			resultList = resultList.subList( 0 , numeroResultados );
+		}
+*/		
 	}
 
 	private static int comparaAtributos(List<String> entrada, List<String> aux) {

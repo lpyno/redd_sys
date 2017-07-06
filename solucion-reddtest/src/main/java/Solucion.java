@@ -6,7 +6,9 @@ public class Solucion {
 		
 		Buscador buscador = Buscador.getInstance( "sku-\\d{1,5}" , rutaArchivoArticulos );
 		
-		System.out.println( buscador.buscarSemejantes().toString() );
+		buscador.buscarSemejantes( 5 );
+		
+		System.exit( 0 );
 		
 	}
 	
