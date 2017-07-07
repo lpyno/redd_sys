@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -29,7 +30,9 @@ public class Buscador {
 	private static List<String> resultList= null;
 	private static List<Integer> topMatchesCount = null;
 	
-	JsonObject jsonObject = null;
+	JsonObject dataSourceMap = null;
+	private static JsonObject atributosToken = null;
+	
 	private static int numeroResultados = MIN_RESULTADOS;
 	
 	public static String getToken() {
@@ -57,7 +60,7 @@ public class Buscador {
 		}
 		
 		JsonReader jsonReader = Json.createReader( fileReader );
-		jsonObject = jsonReader.readObject();
+		dataSourceMap = jsonReader.readObject();
 		jsonReader.close();
 		
 		try {
@@ -90,7 +93,7 @@ public class Buscador {
 			numeroResultados = numeroResultadosRequerido;
 		} else {
 			System.out.println( "El numero de resultados solicitado es invalido." );
-			System.out.println( "Se retornara el numero de resultados por defecto" );
+			System.out.println( "Se retornara el numero de resultados por defecto." );
 		}
 		
 		solicitaTokenEntrada();
@@ -102,17 +105,16 @@ public class Buscador {
 			topMatchesCount.add( 0 );
 			resultList.add( "empty" );
 		}
-		
 
-		JsonObject atributosToken = jsonObject.getJsonObject( token );
+		Buscador.atributosToken = dataSourceMap.getJsonObject( Buscador.token );
 		
-		if ( atributosToken == null ) {
+		if ( Buscador.atributosToken == null ) {
 			System.out.println( "Artículo no existe." );
 			System.out.println( "Cerrando." );
 			System.exit( -4 );
 		}
 		//System.out.println( atributosToken.toString() );
-		buscaAtributos( jsonObject , atributosToken );
+		buscaAtributos( dataSourceMap , Buscador.atributosToken );
 	
 		mostrarResultados();
 		
@@ -120,15 +122,19 @@ public class Buscador {
 	
 	private void mostrarResultados() {
 		
-		for( int i = 0 ; i < numeroResultados ; i++ ){
+		System.out.println( "Resultados:" );
+		
+		for( int i = 0 ; i < numeroResultados ; i++ ) {
 			System.out.println( ( i + 1 ) + ".- Coincidencias en atributos: " + topMatchesCount.get( i ) );
 			String token = resultList.get( i );
-			System.out.println( token + " " + jsonObject.get( token ).toString() );
+			System.out.printf( "%-10s %s \n" , Buscador.token , Buscador.atributosToken.toString() );
+			System.out.printf( "%-10s %s \n" , token , dataSourceMap.get( token ).toString() );
 		}
+		dataSourceMap = null;
 		return;
 	}
 
-	private static void buscaAtributos(JsonObject universoBusqueda , JsonObject atributosEntrada ) {
+	private static void buscaAtributos( JsonObject universoBusqueda , JsonObject atributosEntrada ) {
 		
 		String tokenBase = "sku-"; // ?
 		String tokenToSearch = null ; // ?
@@ -141,6 +147,10 @@ public class Buscador {
 		
 		for ( int i = 1 ; ; i++ ){
 			tokenToSearch = tokenBase + i;
+			
+			if ( tokenToSearch.equals( Buscador.token ) )
+				continue;
+			
 			if ( null != ( atributosTemp = universoBusqueda.getJsonObject( tokenToSearch ) ) ){
 				aux = atributosComoLista( atributosTemp );
 				matches = comparaAtributos( entrada , aux );
@@ -180,6 +190,7 @@ public class Buscador {
 		int a = entrada.size(), b = aux.size();
 		int atributosIguales = 0;
 		
+
 		if ( a == b )
 			numeroAtributos = a;
 		else
@@ -210,7 +221,7 @@ public class Buscador {
 			System.out.println( "Ingrese artículo a buscar: " );
 			
 			try {
-				token = sc.next( p );
+				Buscador.token = sc.next( p );
 				entradaValida = true;
 			} catch ( InputMismatchException e ) {
 				System.out.println( e.toString() );
@@ -222,10 +233,10 @@ public class Buscador {
 		} while ( !entradaValida && ( reintentos > 0 ) );
 		
 		sc.close();
-		return token;
+		return Buscador.token;
 	}
 	
-	private static FileReader getFileReader( String src ){
+	private static FileReader getFileReader( String src ) {
 		
 		try { 
 			return new FileReader( src );	
