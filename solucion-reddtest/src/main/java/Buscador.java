@@ -125,7 +125,7 @@ public class Buscador {
 		System.out.println( "Resultados:" );
 		
 		for( int i = 0 ; i < numeroResultados ; i++ ) {
-			System.out.println( ( i + 1 ) + ".- Coincidencias en atributos: " + topMatchesCount.get( i ) );
+			System.out.println( ( i + 1 ) + ".- Coincidencias en atributos: " + ( topMatchesCount.get( i ) & 0xFF ) );
 			String token = resultList.get( i );
 			System.out.printf( "%-10s %s \n" , Buscador.token , Buscador.atributosToken.toString() );
 			System.out.printf( "%-10s %s \n" , token , dataSourceMap.get( token ).toString() );
@@ -165,7 +165,7 @@ public class Buscador {
 	private static void actualizaResultados( int matches , String tokenBase ) {
 	
 		for ( int i = 0 ; i < numeroResultados ; i++ ){
-			if ( matches > topMatchesCount.get( i ) ){
+			if ( ( matches & 0xFFFFFF00 ) > topMatchesCount.get( i ) ){
 				topMatchesCount.add( i , matches );
 				topMatchesCount.remove( topMatchesCount.size() - 1 );
 				resultList.add( i , tokenBase );
@@ -197,8 +197,12 @@ public class Buscador {
 			numeroAtributos = Math.min(a, b);
 		
 		for ( int i = 0 ; i < numeroAtributos ; i++ ) {
-			if ( entrada.get( i ).equals( aux.get( i ) ) )
-				atributosIguales++;
+			if ( entrada.get( i ).equals( aux.get( i ) ) ) {
+				// usa los bits menos significativos para la cuenta de coincidencias
+				// y los mas significativos para indicar el "peso" de las coincidencias
+				 atributosIguales++;
+				 atributosIguales |= ( int )( 1 << ( 31 - i ) ) ;
+			}
 		}
 		
 		return atributosIguales;
